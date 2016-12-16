@@ -1,8 +1,7 @@
 # STM32F407DiscoveryProject
 Using STM32F4 board to implement simple security system.
-
-<<<<<<< HEAD
 =======
+
 :: Tools -> System Workbench for STM32.
 
 :: Detail -> This project is implemented by System Workbench for STM32. Using these simple IC.
@@ -12,5 +11,5 @@ Using STM32F4 board to implement simple security system.
   (You can see the detail in datasheet)
   
 ::  Demonstration Clip -> https://youtu.be/JPM-K3BGNZ8
->>>>>>> origin/master
+
 
