@@ -97,11 +97,11 @@ float float_abs(float in){
 	return in < 0 ? -in : in;
 }
 
-#define PDM_BUFFER_SIZE 20
+#define PDM_BUFFER_SIZE 200
 #define PCM_BUFFER_SIZE 20
 #define LEAKY_KEEP_RATE 0.95
 #define UART_DEBUG_TICK_RATE 100
-#define PDM_BLOCK_SIZE_BITS 16
+#define PDM_BLOCK_SIZE_BITS 8
 //-----------------------------------
 
 /* USER CODE END 0 */
@@ -114,8 +114,8 @@ int main(void)
 	uint8_t i;
   	uint16_t pdm_buffer[PDM_BUFFER_SIZE]; // Buffer for pdm value from hi2s2 (Mic)
 	uint16_t pdm_value = 0;				// For keeping pcm value calculated from pdm_value
-	uint8_t pcm_value = 0;				// value range is 0-16, 8-bit is chosen because it can store 0-255
-
+	int8_t pcm_value = 0;				// value range is 0-16, 8-bit is chosen because it can store 0-255
+	 int pcm_count = 0 ;
 	char uart_temp_display_buffer[100];
 
 	float leaky_pcm_buffer = 0.0;			// Fast Estimation of moving average of PDM
@@ -210,16 +210,15 @@ int main(void)
   			  HAL_I2S_Receive(&hi2s2,pdm_buffer,PDM_BUFFER_SIZE,1000); // Receive PDM from Mic
 
   			  // Unlocking
-		  	  if(unLock >=4) {
+		  	  if(unLock >=8) {
 		  		  isLock = 0;
 		  		  unLock = 0;
-		  		  HAL_Delay(100);
 		  		  PlayUnlock();
 		  	  }
 
 		  	  //Calculating voice
 		  	  for(i=0;i<PDM_BUFFER_SIZE;i++){
-		  		  pcm_value = 0;
+		  		  pcm_value = -PDM_BLOCK_SIZE_BITS/2;
 		 		  pdm_value = pdm_buffer[i];
 		 		  //calculate PCM value
 		 		  while(pdm_value!=0){
@@ -231,19 +230,22 @@ int main(void)
 		 		  leaky_amp_buffer += float_abs(leaky_pcm_buffer);
 		 		  leaky_amp_buffer *= LEAKY_KEEP_RATE;
 		 	  }
-		 	  max_amp = leaky_amp_buffer;
-		 	  if(max_amp > 3000){
-		 		  unLock++;
-		 	  }
-		 	  else{
-		 		 if(unLock-1<0) unLock = 0;
-		 		 else unLock--;
-		 	  }
-		 	  max_amp = 0;
-		 	  HAL_Delay(90);
-		 	  HAL_GPIO_TogglePin(GPIOD, 1<<(12+togPin));
-		 	  togPin=(togPin+1)%4;
+		  	  if(max_amp<leaky_amp_buffer) max_amp = leaky_amp_buffer;
+		  	  pcm_count++;
 
+		  	  if(PCM_BUFFER_SIZE==pcm_count){
+		  		  if(max_amp > 2000){
+		  			  unLock++;
+		  		  }
+		  		  else{
+		  			  if(unLock-1<0) unLock = 0;
+		  			  else unLock--;
+		  		  }
+		 		  max_amp = 0;
+		 		  pcm_count=0;
+		 		  HAL_GPIO_TogglePin(GPIOD, 1<<(12+togPin));
+		 		  togPin=(togPin+1)%4;
+		  	  }
 		 	  // if board moves, that means system is hacked.
 		 	  if (z <= -30 || z>= 85 || (y>10&&y<60) || (x<246&&x>200) || (x>10&&x<60) || (y<246&&y>200)){
 		 		  isHack=1;
@@ -274,6 +276,7 @@ int main(void)
   				  if(y<246&&y>200)HAL_GPIO_WritePin(GPIOD,GPIO_PIN_15,GPIO_PIN_SET);
   				  else HAL_GPIO_WritePin(GPIOD,GPIO_PIN_15,GPIO_PIN_RESET);
   			  }
+  		  HAL_Delay(20);
   		  }
   	  }
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
@@ -288,7 +291,7 @@ int main(void)
 	  if(isHack==1) {
 		  HAL_UART_Transmit(&huart2,(uint8_t*)"\rSystem Status : Hacked", 23, 100000);
 	  }
-	  HAL_Delay(20);
+
   }
   /* USER CODE END 3 */
 
@@ -301,7 +304,7 @@ void WriteAllLed(GPIO_PinState PinState){
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, PinState);
 }
 void PlayUnlock(){
-	HAL_Delay(300);
+	HAL_Delay(500);
 	PlaySound(2);
 	HAL_Delay(20);
 	PlaySound(3);
